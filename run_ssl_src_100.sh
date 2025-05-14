@@ -1,0 +1,1 @@
+sh scripts/promptsrc/few_shot.sh imagenet 100 1 
