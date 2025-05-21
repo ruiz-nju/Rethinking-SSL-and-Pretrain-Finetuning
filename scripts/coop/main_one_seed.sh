@@ -4,7 +4,7 @@
 #cd ../..
 
 # custom config
-DATA="path/to/data"
+DATA="/mnt/hdd/DATA"
 TRAINER=CoOp
 
 DATASET=$1

@@ -1,1 +1,0 @@
-sh scripts/coop/main.sh imagenet vit_b16_ep200 100 0 

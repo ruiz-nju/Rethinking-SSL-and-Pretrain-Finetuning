@@ -1,3 +1,4 @@
+import pdb
 import copy
 import os.path as osp
 import numpy as np
@@ -87,28 +88,36 @@ class VLPromptLearner(nn.Module):
             "\nPlease use VPT trainer if you want to learn only vision "
             "branch"
         )
-        n_ctx = cfg.TRAINER.PROMPTSRC.N_CTX_TEXT
-        ctx_init = cfg.TRAINER.PROMPTSRC.CTX_INIT
-        dtype = clip_model.dtype
-        ctx_dim = clip_model.ln_final.weight.shape[0]
-        clip_imsize = clip_model.visual.input_resolution
-        cfg_imsize = cfg.INPUT.SIZE[0]
+        n_ctx = cfg.TRAINER.PROMPTSRC.N_CTX_TEXT # 4
+        ctx_init = cfg.TRAINER.PROMPTSRC.CTX_INIT # "a photo of a"
+        dtype = clip_model.dtype # torch.float16
+        ctx_dim = clip_model.ln_final.weight.shape[0] # 512
+        clip_imsize = clip_model.visual.input_resolution # 224
+        cfg_imsize = cfg.INPUT.SIZE[0] # 224
         assert (
             cfg_imsize == clip_imsize
         ), f"cfg_imsize ({cfg_imsize}) must equal to clip_imsize ({clip_imsize})"
 
         if ctx_init and n_ctx <= 4:
             # use given words to initialize context vectors
-            ctx_init = ctx_init.replace("_", " ")
+            ctx_init = ctx_init.replace("_", " ")  # "a photo of a"
             n_ctx = n_ctx
-            prompt = clip.tokenize(ctx_init)
+            prompt = clip.tokenize(ctx_init) # torch.Size([1, 77])
+            # prompt: tensor([[49406,   320,  1125,   539,   320, 49407,     0,     0,     0,     0,
+            #  0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+            #  0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+            #  0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+            #  0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+            #  0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+            #  0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+            #  0,     0,     0,     0,     0,     0,     0]])
             with torch.no_grad():
-                embedding = clip_model.token_embedding(prompt).type(dtype)
-            ctx_vectors = embedding[0, 1 : 1 + n_ctx, :]
+                embedding = clip_model.token_embedding(prompt).type(dtype) # torch.Size([1, 77, 512]) [bs, seq_len, dim]
+            ctx_vectors = embedding[0, 1 : 1 + n_ctx, :] # torch.Size([4, 512]) 开头是sos token
             prompt_prefix = ctx_init
         else:
             # random initialization
-            ctx_vectors = torch.empty(n_ctx, ctx_dim, dtype=dtype)
+            ctx_vectors = torch.empty(n_ctx, ctx_dim, dtype=dtype) # torch.Size([4, 512])
             nn.init.normal_(ctx_vectors, std=0.02)
             prompt_prefix = " ".join(["X"] * n_ctx)
         print(f"Independent V-L design")
@@ -117,8 +126,8 @@ class VLPromptLearner(nn.Module):
         print(
             f"Number of context words (tokens) for Vision prompting: {cfg.TRAINER.PROMPTSRC.N_CTX_VISION}"
         )
-        self.ctx = nn.Parameter(ctx_vectors)
-
+        self.ctx = nn.Parameter(ctx_vectors) # torch.Size([4, 512])
+        # 至此，self.ctx 是初始化好的 context vectors
         classnames = [name.replace("_", " ") for name in classnames]
         name_lens = [len(_tokenizer.encode(name)) for name in classnames]
         prompts = [prompt_prefix + " " + name + "." for name in classnames]
@@ -147,7 +156,8 @@ class VLPromptLearner(nn.Module):
         # those computed using the current class names
         self.register_buffer("token_prefix", embedding[:, :1, :])  # SOS
         self.register_buffer("token_suffix", embedding[:, 1 + n_ctx :, :])  # CLS, EOS
-
+        
+        self.classnames = classnames
         self.n_cls = n_cls
         self.n_ctx = n_ctx
         self.tokenized_prompts = tokenized_prompts  # torch.Tensor
@@ -175,15 +185,16 @@ class VLPromptLearner(nn.Module):
         return prompts
 
     def forward(self):
-        ctx = self.ctx
+        ctx = self.ctx # torch.Size([4, 512])
         if ctx.dim() == 2:
-            ctx = ctx.unsqueeze(0).expand(self.n_cls, -1, -1)
+            ctx = ctx.unsqueeze(0).expand(self.n_cls, -1, -1) # torch.Size([127, 4, 512])
 
-        prefix = self.token_prefix
+        prefix = self.token_prefix 
         suffix = self.token_suffix
         prompts = self.construct_prompts(ctx, prefix, suffix)
 
         return prompts
+        
 
 
 class CustomCLIP(nn.Module):

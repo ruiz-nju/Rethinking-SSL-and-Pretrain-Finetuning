@@ -1,1 +1,0 @@
-sh scripts/coop/main.sh cifar10 vit_b16_ep200 400 0 

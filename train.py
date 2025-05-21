@@ -19,8 +19,8 @@ import datasets.sun397
 import datasets.caltech101
 import datasets.ucf101
 import datasets.imagenet
-import datasets.cifar101
-import datasets.cifar1001
+import datasets.cifar10_ow
+import datasets.cifar100_ow
 
 # import datasets.stl10
 import datasets.stl10_16

@@ -21,7 +21,7 @@ class CIFAR10(DatasetBase):
     dataset_dir = "cifar10"
 
     def __init__(self, cfg):
-        root = osp.abspath(osp.expanduser("/mnt/hdd/DATA"))
+        root = osp.abspath(osp.expanduser(cfg.DATASET.ROOT))
         self.dataset_dir = osp.join(root, self.dataset_dir)
         train_dir = osp.join(self.dataset_dir, "train")
         test_dir = osp.join(self.dataset_dir, "test")

@@ -51,21 +51,25 @@ class TextEncoder(nn.Module):
         self.dtype = clip_model.dtype
 
     def forward(self, prompts, tokenized_prompts):
+        # prompts: torch.Size([127, 77, 512])
+        # tokenized_prompts: torch.Size([127, 77])
         x = prompts + self.positional_embedding.type(self.dtype)
         x = x.permute(1, 0, 2)  # NLD -> LND
         x = self.transformer(x)
         x = x.permute(1, 0, 2)  # LND -> NLD
         x = self.ln_final(x).type(self.dtype)
 
-        # x.shape = [batch_size, n_ctx, transformer.width]
+
+        # x.shape = [batch_size, n_ctx, transformer.width] torch.Size([127, 77, 512])
         # take features from the eot embedding (eot_token is the highest number in each sequence)
         x = (
-            x[torch.arange(x.shape[0]), tokenized_prompts.argmax(dim=-1)]
+            # tokenized_prompts.argmax(dim=-1).shape = torch.Size([127])
+            # x[torch.arange(x.shape[0]), tokenized_prompts.argmax(dim=-1)].shape = torch.Size([127, 512])
+            x[torch.arange(x.shape[0]), tokenized_prompts.argmax(dim=-1)] # 取出每个序列中最后一个token的embedding
             @ self.text_projection
         )
 
         return x
-
 
 class PromptLearner(nn.Module):
     def __init__(self, cfg, classnames, clip_model):
@@ -105,13 +109,13 @@ class PromptLearner(nn.Module):
         print(f'Initial context: "{prompt_prefix}"')
         print(f"Number of context words (tokens): {n_ctx}")
 
-        self.ctx = nn.Parameter(ctx_vectors)  # to be optimized
+        self.ctx = nn.Parameter(ctx_vectors)  # torch.Size([16, 512])
 
         classnames = [name.replace("_", " ") for name in classnames]
         name_lens = [len(_tokenizer.encode(name)) for name in classnames]
         prompts = [prompt_prefix + " " + name + "." for name in classnames]
 
-        tokenized_prompts = torch.cat([clip.tokenize(p) for p in prompts])
+        tokenized_prompts = torch.cat([clip.tokenize(p) for p in prompts]) # torch.Size([127, 77])
         with torch.no_grad():
             embedding = clip_model.token_embedding(tokenized_prompts).type(dtype)
 
@@ -123,17 +127,18 @@ class PromptLearner(nn.Module):
 
         self.n_cls = n_cls
         self.n_ctx = n_ctx
-        self.tokenized_prompts = tokenized_prompts  # torch.Tensor
+        self.tokenized_prompts = tokenized_prompts  # torch.Size([127, 77])
         self.name_lens = name_lens
         self.class_token_position = cfg.TRAINER.COOP.CLASS_TOKEN_POSITION
 
     def forward(self):
-        ctx = self.ctx
+        # 这个函数把 ctx 和类名的embedding 拼接起来
+        ctx = self.ctx # torch.Size([16, 512])
         if ctx.dim() == 2:
-            ctx = ctx.unsqueeze(0).expand(self.n_cls, -1, -1)
+            ctx = ctx.unsqueeze(0).expand(self.n_cls, -1, -1) # torch.Size([127, 16, 512])
 
-        prefix = self.token_prefix
-        suffix = self.token_suffix
+        prefix = self.token_prefix # torch.Size([127, 1, 512])
+        suffix = self.token_suffix # torch.Size([127, 60, 512])
 
         if self.class_token_position == "end":
             prompts = torch.cat(
@@ -191,7 +196,7 @@ class PromptLearner(nn.Module):
         else:
             raise ValueError
 
-        return prompts
+        return prompts # torch.Size([127, 77, 512])
 
 
 class CustomCLIP(nn.Module):
@@ -207,8 +212,8 @@ class CustomCLIP(nn.Module):
     def forward(self, image, return_feature=False):
         image_features = self.image_encoder(image.type(self.dtype))
 
-        prompts = self.prompt_learner()
-        tokenized_prompts = self.tokenized_prompts
+        prompts = self.prompt_learner() # torch.Size([127, 77, 512])
+        tokenized_prompts = self.tokenized_prompts # torch.Size([127, 77])
         text_features = self.text_encoder(prompts, tokenized_prompts)
 
         image_features = image_features / image_features.norm(dim=-1, keepdim=True)

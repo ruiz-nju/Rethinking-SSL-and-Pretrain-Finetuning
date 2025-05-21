@@ -1,7 +1,7 @@
 import os
 import pickle
 from collections import OrderedDict
-
+import pdb
 from dassl.data.datasets import DATASET_REGISTRY, Datum, DatasetBase
 from dassl.utils import listdir_nohidden, mkdir_if_missing
 
@@ -160,4 +160,38 @@ class ImageNet127(DatasetBase):
             else:
                 print("  No corresponding old classes found")
         print("\n" + "=" * 80)
+
+    def get_127_to_1000_name_mapping(self):
+        classnames_1000 = os.path.join(self.dataset_dir, 'classnames.txt')
+        classnames_127 = os.path.join(self.dataset_dir, 'classnames_127.txt')
+        
+        with open(classnames_1000, 'r') as f:
+            txt = f.readlines()
+        old_classnames = {}
+        for line in txt:
+            old_cls, old_classname = line.strip().split(' ', 1)
+            old_classnames[old_cls] = old_classname
+            
+        with open(classnames_127, 'r') as f:
+            txt = f.readlines()
+        new_classnames = {}
+        for line in txt:
+            new_cls, new_classname = line.strip().split(' ', 1)
+            new_classnames[new_cls] = new_classname
+            
+        new_to_old_mapping = {}
+        for old_cls, (new_cls, _) in self.oldcls2newcls_and_newidx.items():
+            if new_cls not in new_to_old_mapping:
+                new_to_old_mapping[new_cls] = []
+            new_to_old_mapping[new_cls].append((old_cls, old_classnames[old_cls]))
+            
+        new_name_to_old_name_mapping = {}
+        for new_cls, new_classname in new_classnames.items():
+            new_name_to_old_name_mapping[new_classname] = []
+            if new_cls in new_to_old_mapping:
+                for old_cls, old_classname in sorted(new_to_old_mapping[new_cls]):
+                    new_name_to_old_name_mapping[new_classname].append(old_classname)
+        
+        return new_name_to_old_name_mapping
+        
         

@@ -1,1 +1,0 @@
-sh scripts/promptsrc/few_shot.sh cifar10 400 1 
