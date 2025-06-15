@@ -1,6 +1,6 @@
 # Unlabeled Data or Pre-trained Model: Rethinking Semi-Supervised Learning and Pretrain-Finetuning
 
-The official code for the paper ["Unlabeled Data or Pre-trained Model: Rethinking Semi-Supervised Learning and Pretrain-Finetuning"](https://arxiv.org/abs/2505.13317).
+The official code for the paper "Unlabeled Data or Pre-trained Model: Rethinking Semi-Supervised Learning and Pretrain-Finetuning".
 
 ![pipeline](figs/pipeline.png)
 

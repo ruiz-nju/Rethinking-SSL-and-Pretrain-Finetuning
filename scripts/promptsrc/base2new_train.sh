@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # custom config
-DATA="path/to/data"
+DATA="/mnt/hdd/DATA"
 TRAINER=PromptSRC
 
 DATASET=$1
